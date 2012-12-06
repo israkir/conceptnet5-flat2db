@@ -22,23 +22,29 @@ Instructions
 
 2. To create database tables:
 
-    $ python dbschema.py
+    `$ python dbschema.py`
 
 3. Put ConceptNet5 flat files in to a directory; e.g. '/home/data/'
 
 4. Starting parsing the data files and add data to database tables:
 
-    $ python flatparser.py /home/data/
+    `$ python flatparser.py /home/data/`
 
 Also:
 
 1. I would recommend to run `flatparser.py` as a background process using `nohup`:
 
-    $ nohup python flatparser.py > log.out &
+    `$ nohup python flatparser.py > log.out &`
 
 2. To see stdout:
     
-    $ tail -f log.out
+    `$ tail -f log.out`
+
+    
+Database schema
+===============
+
+![ScreenShot](https://raw.github.com/israkir/conceptnet5-flat2db/master/schema.png)
 
 
 Acknowledgments
