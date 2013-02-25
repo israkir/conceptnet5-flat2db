@@ -18,7 +18,7 @@ Dependencies
 Instructions
 ============
 
-1. Fill the username, password, host, database name information in both `dbschema.py` and `flatparser.py` scripts.
+1. Fill the username, password, host, database name information in `settings.py`.
 
 2. To create database tables:
 
@@ -34,11 +34,11 @@ Also:
 
 1. I would recommend to run `flatparser.py` as a background process using `nohup`:
 
-    `$ nohup python flatparser.py > log.out &`
+    `$ nohup python flatparser.py > stdout.log &`
 
-2. To see stdout:
+2. To see stdout as the log file grows:
     
-    `$ tail -f log.out`
+    `$ tail -f stdout.log`
 
     
 Database schema

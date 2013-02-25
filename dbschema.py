@@ -4,6 +4,9 @@
 from sqlalchemy.schema import MetaData, Table, Column, ForeignKey
 from sqlalchemy.types import INT, FLOAT, CHAR, VARCHAR
 
+from settings import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWD
+
+
 metadata = MetaData()
 
 license = Table('license', metadata,
@@ -67,7 +70,9 @@ def _test_schema():
     from sqlalchemy import create_engine
 
     # engine = create_engine('sqlite:///:memory:', echo=True)
-    engine = create_engine('postgresql+psycopg2://username:passwd@host:port/dbname', client_encoding='utf8')
+    engine = create_engine('postgresql+psycopg2://%s:%s@%s:%s/%s' % (
+        DB_USER, DB_PASSWD, DB_HOST, DB_PORT, DB_NAME), 
+            client_encoding='utf8')
     metadata.create_all(engine)
 
 if __name__ == '__main__':

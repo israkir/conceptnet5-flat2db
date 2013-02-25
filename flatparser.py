@@ -6,12 +6,10 @@ import ast
 import psycopg2
 import psycopg2.extras
 
-DEBUG = False
+from settings import DB_HOST, DB_NAME, DB_USER, DB_PASSWD
 
-DB_HOST = ''
-DB_NAME = ''
-DB_USER = ''
-DB_PASSWD = ''
+
+DEBUG = True
 
 
 def get_conn():
@@ -45,21 +43,21 @@ def traverse_dir(path):
 def insert_source_file(filename):
     print 'inserting source file: %s' % filename
     
-    if not DEBUG:
-        conn = get_conn()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        
-        cmd = cursor.mogrify(
-            '''
-            SELECT id from source_file
-            WHERE filename = %s
-            '''
-        )
+    conn = get_conn()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    
+    cmd = cursor.mogrify(
+        '''
+        SELECT id from source_file
+        WHERE filename = %s
+        '''
+    )
 
-        cursor.execute(cmd, [filename])
-        row = cursor.fetchone()
+    cursor.execute(cmd, [filename])
+    row = cursor.fetchone()
 
-        if not row:
+    if not row:
+        if not DEBUG:
             cmd = cursor.mogrify(
                 '''
                 INSERT INTO source_file (filename)
@@ -70,23 +68,21 @@ def insert_source_file(filename):
             cursor.execute(cmd, [filename])
             cursor.execute('''SELECT currval('source_file_id_seq');''')
             fid = cursor.fetchone()[0]
-        else:
-            fid = row[0]
-            print 'source file already exists: %s | id: %s' % (filename, fid)
+    else:
+        fid = row[0]
+        print 'source file already exists: %s | id: %s' % (filename, fid)
 
-        
-        cursor.close()
-        conn.commit()
-
-        return fid
     
-    return filename
+    cursor.close()
+    conn.commit()
 
+    return fid
+    
 
 def insert_all_attributes(json_str, fid):
     print 'parsing all attributes...'
     data = json.loads(json_str)
-    
+
     start_lang = data['start'].split('/')[2]
     insert_language(start_lang)
     
@@ -124,7 +120,7 @@ def insert_all_attributes(json_str, fid):
     surface_text = data['surfaceText'].encode('utf-8')
     uri = data['uri'].encode('utf-8')
     raw_assertion_id = insert_raw_assertion(start_id, rel_id, end_id, license, dataset, 
-        surface_text, weight, score, uri, fid) 
+        surface_text, weight, score, uri, fid, sid_list) 
 
     insert_assertion_source(raw_assertion_id, sid_list)
 
@@ -211,21 +207,21 @@ def insert_source(source):
     print 'inserting source'
     # print 'inserting source: %s' % source
     
-    if not DEBUG:
-        conn = get_conn()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    conn = get_conn()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-        cmd = cursor.mogrify(
-            '''
-            SELECT id FROM source
-            WHERE name = %s
-            '''
-        )
+    cmd = cursor.mogrify(
+        '''
+        SELECT id FROM source
+        WHERE name = %s
+        '''
+    )
 
-        cursor.execute(cmd, [source])
-        row = cursor.fetchone()
+    cursor.execute(cmd, [source])
+    row = cursor.fetchone()
 
-        if not row:
+    if not row:
+        if not DEBUG:
             cmd = cursor.mogrify(
                 '''
                 INSERT INTO source (name)
@@ -235,40 +231,38 @@ def insert_source(source):
             cursor.execute(cmd, [source])
             cursor.execute('''SELECT currval('source_id_seq');''')
             sid = cursor.fetchone()[0]
-        else:
-            sid = row[0]
-            print 'source already exists - id: %s' % (sid)
+    else:
+        sid = row[0]
+        print 'source already exists - id: %s' % (sid)
 
-        cursor.close()
-        conn.commit()
+    cursor.close()
+    conn.commit()
 
-        return sid
-    
-    return source 
+    return sid
 
 
 def insert_concept(concept, lang):
     print 'inserting concept'
     # print 'inserting concept: %s | in lang: %s' % (concept.decode('utf-8'), lang.decode('utf-8'))
     
-    if not DEBUG:
-        conn = get_conn()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    conn = get_conn()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-        cmd = cursor.mogrify(
-            '''
-            SELECT id FROM concept
-            WHERE uri = %s AND language_id = (
-                SELECT id FROM language 
-                WHERE name = %s
-            )
-            '''
+    cmd = cursor.mogrify(
+        '''
+        SELECT id FROM concept
+        WHERE uri = %s AND language_id = (
+            SELECT id FROM language 
+            WHERE name = %s
         )
+        '''
+    )
 
-        cursor.execute(cmd, [concept, lang])
-        row = cursor.fetchone()
-        
-        if not row:
+    cursor.execute(cmd, [concept, lang])
+    row = cursor.fetchone()
+    
+    if not row:
+        if not DEBUG:
             cmd = cursor.mogrify(
                 '''
                 INSERT INTO concept (uri, language_id)
@@ -278,16 +272,14 @@ def insert_concept(concept, lang):
             cursor.execute(cmd, [concept, lang])
             cursor.execute('''SELECT currval('concept_id_seq');''')
             row_id = cursor.fetchone()[0]
-        else:
-            row_id = row[0]
-            print 'concept already exists - id: %s' % (row_id)
-        
-        cursor.close()
-        conn.commit()
+    else:
+        row_id = row[0]
+        print 'concept already exists - id: %s' % (row_id)
+    
+    cursor.close()
+    conn.commit()
 
-        return row_id
-
-    return concept
+    return row_id
 
 
 def insert_assertion(start_id, rel_id, end_id):
@@ -322,36 +314,110 @@ def insert_assertion(start_id, rel_id, end_id):
         conn.commit()
 
 
-def insert_raw_assertion(start_id, rel_id, end_id, license, dataset, surface_text, weight, score, uri, fid):
+def insert_raw_assertion(start_id, rel_id, end_id, license, dataset, surface_text, weight, score, uri, fid, sid_list):
     print 'inserting raw assertion'
     #print 'inserting raw assertion: %s %s %s | license: %s | dataset: %s | surface_text: %s | uri: %s | fid: %s' % (
-    #    start_id, rel_id, end_id, license, dataset, surface_text, uri, fid)
+    #    start_id, rel_id, end_id, license, dataset, surface_text, uri,fid)
 
-    if not DEBUG:
-        conn = get_conn()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    conn = get_conn()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+   
+    # check raw assertion does exist with first parameters
+    cmd = cursor.mogrify(
+        '''
+        SELECT id FROM raw_assertion
+        WHERE assertion_id = (SELECT id FROM assertion WHERE start_id = %s AND relation_id = %s AND end_id = %s)
+            AND license_id = (SELECT id FROM license WHERE name = %s)
+            AND dataset_id = (SELECT id FROM dataset WHERE name = %s)
+            AND surface_text = %s
+            AND weight = %s
+            AND score IS NOT DISTINCT FROM %s
+            AND uri = %s
+            AND source_file_id = %s
+        '''
+    )
+   
+    cursor.execute(cmd, [start_id, rel_id, end_id, license, dataset, surface_text, weight, score, uri, fid])
+    old_raw_assertion_ids = cursor.fetchall()
 
-        cmd = cursor.mogrify(
-            '''
-            INSERT INTO raw_assertion (assertion_id, license_id, dataset_id, surface_text, weight, score, uri, source_file_id)
-            VALUES (
-                (SELECT id FROM assertion WHERE start_id = %s AND relation_id = %s AND end_id = %s), 
-                (SELECT id FROM license WHERE name = %s), 
-                (SELECT id FROM dataset WHERE name = %s),
-                %s, %s, %s, %s, %s
+    # if there are some raw assertions for this surface text, check whether it is from the same resource
+    if old_raw_assertion_ids:
+        print 'raw assertion does exist. checking whether it is from the same source...'
+        for old_raw_assertion_id in old_raw_assertion_ids:
+            cmd = cursor.mogrify(
+                '''
+                SELECT * FROM assertion_source
+                WHERE raw_assertion_id = %s
+                '''
             )
-            '''
-        )
+            cursor.execute(cmd, [old_raw_assertion_id[0]])
+            assertion_sources = cursor.fetchall()
 
-        cursor.execute(cmd, [start_id, rel_id, end_id, license, dataset, surface_text, weight, score, uri, fid])
+            if assertion_sources:
+                counter = 0
+                for assertion_source in assertion_sources:
+                    cmd = cursor.mogrify(
+                        '''
+                        SELECT id FROM source
+                        WHERE id = %s
+                        '''
+                    )
+                    cursor.execute(cmd, [assertion_source[2]])
+                    source_id = cursor.fetchone()[0]
+                    if source_id in sid_list:
+                        counter += 1 
+
+                if len(assertion_sources) == counter:
+                    print 'raw assertion identically exist!'
+
+                if len(assertion_sources) != counter:
+                    if not DEBUG:
+                        cmd = cursor.mogrify(
+                            '''
+                            INSERT INTO raw_assertion (assertion_id, license_id, dataset_id, surface_text, weight, score, uri, source_file_id)
+                            VALUES (
+                                (SELECT id FROM assertion WHERE start_id = %s AND relation_id = %s AND end_id = %s), 
+                                (SELECT id FROM license WHERE name = %s), 
+                                (SELECT id FROM dataset WHERE name = %s),
+                                %s, %s, %s, %s, %s
+                            )
+                            '''
+                        )
+
+                        cursor.execute(cmd, [start_id, rel_id, end_id, license, dataset, surface_text, weight, score, uri, fid])
+                    
+                        cursor.execute('''SELECT currval('raw_assertion_id_seq');''')
+                        raw_assertion_id = cursor.fetchone()[0]
+                    
+                        cursor.close()
+                        conn.commit()
+                    
+                        return raw_assertion_id
+
+    # if there is no raw assertion for this surface text, add a new raw assertion
+    else:
+        if not DEBUG:
+            cmd = cursor.mogrify(
+                '''
+                INSERT INTO raw_assertion (assertion_id, license_id, dataset_id, surface_text, weight, score, uri, source_file_id)
+                VALUES (
+                    (SELECT id FROM assertion WHERE start_id = %s AND relation_id = %s AND end_id = %s), 
+                    (SELECT id FROM license WHERE name = %s), 
+                    (SELECT id FROM dataset WHERE name = %s),
+                    %s, %s, %s, %s, %s
+                )
+                '''
+            )
+
+            cursor.execute(cmd, [start_id, rel_id, end_id, license, dataset, surface_text, weight, score, uri, fid])
         
-        cursor.execute('''SELECT currval('raw_assertion_id_seq');''')
-        raw_assertion_id = cursor.fetchone()[0]
+            cursor.execute('''SELECT currval('raw_assertion_id_seq');''')
+            raw_assertion_id = cursor.fetchone()[0]
         
-        cursor.close()
-        conn.commit()
+            cursor.close()
+            conn.commit()
         
-        return raw_assertion_id
+            return raw_assertion_id
     
     return surface_text
 
