@@ -1,0 +1,8 @@
+*.pyc
+*.py~
+tmp/
+.DS_Store
+.vimrc
+*.swp
+*.swo
+settings.py
