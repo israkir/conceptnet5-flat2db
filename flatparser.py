@@ -9,7 +9,7 @@ import psycopg2.extras
 from settings import DB_HOST, DB_NAME, DB_USER, DB_PASSWD
 
 
-DEBUG = True
+DEBUG = False
 
 
 def get_conn():
@@ -83,10 +83,18 @@ def insert_all_attributes(json_str, fid):
     print 'parsing all attributes...'
     data = json.loads(json_str)
 
-    start_lang = data['start'].split('/')[2]
+    if '/' in data['start']:
+        start_lang = data['start'].split('/')[2]
+    else:
+        start_lang = 'en'
+        
     insert_language(start_lang)
     
-    end_lang = data['end'].split('/')[2]
+    if '/' in data['end']:
+        end_lang = data['end'].split('/')[2]
+    else:
+        end_lang = 'en'
+    
     insert_language(end_lang)
    
     dataset = data['dataset']
@@ -119,10 +127,11 @@ def insert_all_attributes(json_str, fid):
         score = None
     surface_text = data['surfaceText'].encode('utf-8')
     uri = data['uri'].encode('utf-8')
-    raw_assertion_id = insert_raw_assertion(start_id, rel_id, end_id, license, dataset, 
-        surface_text, weight, score, uri, fid, sid_list) 
+    raw_assertion_id, assertion_exist = insert_raw_assertion(start_id, rel_id, end_id, 
+        license, dataset,surface_text, weight, score, uri, fid, sid_list) 
 
-    insert_assertion_source(raw_assertion_id, sid_list)
+    if not assertion_exist:
+        insert_assertion_source(raw_assertion_id, sid_list)
 
 
 def insert_language(lang):
@@ -369,6 +378,8 @@ def insert_raw_assertion(start_id, rel_id, end_id, license, dataset, surface_tex
 
                 if len(assertion_sources) == counter:
                     print 'raw assertion identically exist!'
+                    assertion_exist = True
+                    return old_raw_assertion_id[0], assertion_exist
 
                 if len(assertion_sources) != counter:
                     if not DEBUG:
@@ -392,7 +403,8 @@ def insert_raw_assertion(start_id, rel_id, end_id, license, dataset, surface_tex
                         cursor.close()
                         conn.commit()
                     
-                        return raw_assertion_id
+                        assertion_exist = False
+                        return raw_assertion_id, assertion_exist
 
     # if there is no raw assertion for this surface text, add a new raw assertion
     else:
@@ -417,7 +429,8 @@ def insert_raw_assertion(start_id, rel_id, end_id, license, dataset, surface_tex
             cursor.close()
             conn.commit()
         
-            return raw_assertion_id
+            assertion_exist = False
+            return raw_assertion_id, assertion_exist
     
     return surface_text
 
