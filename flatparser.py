@@ -109,13 +109,27 @@ def insert_all_attributes(json_str, fid):
         sid = insert_source(source)
         sid_list.append(sid)
 
-    start = data['start'].encode('utf-8')
+    # verbosity.json specific formatting
+    # attributes for these don't have namespace
+    # and multi-word concepts don't have underscore
+    if '/' in data['start']:
+        start = data['start'].encode('utf-8')
+    else:
+        start = ('/c/en/' + data['start'].replace(' ', '_')).encode('utf-8')
+    
     start_id = insert_concept(start, start_lang)
 
     rel = data['rel'].encode('utf-8')
     rel_id = insert_concept(rel, 'en')
 
-    end = data['end'].encode('utf-8') 
+    # verbosity.json specific formatting
+    # attributes for these don't have namespace
+    # and multi-word concepts don't have underscore
+    if '/' in data['end']:
+        end = data['end'].encode('utf-8') 
+    else:
+        end = ('/c/en/' + data['end'].replace(' ', '_')).encode('utf-8') 
+    
     end_id = insert_concept(end, end_lang)
 
     insert_assertion(start_id, rel_id, end_id)
